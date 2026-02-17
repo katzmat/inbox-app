@@ -14,7 +14,7 @@ export default function App() {
     <SafeAreaProvider>
       <PhoneFrame>
         <SafeAreaView
-          style={{ flex: 1, backgroundColor: screen === "prototypes" ? colors.foreground.primary : colors.background.primary }}
+          style={{ flex: 1, backgroundColor: screen === "prototypes" ? "#1d1d1f" : colors.background.primary }}
           edges={["top"]}
         >
           {screen === "inbox" ? <InboxScreen /> : <PrototypeScreen />}
@@ -36,7 +36,7 @@ export default function App() {
               style={[navStyles.navTab, screen === "prototypes" && navStyles.navTabActive]}
             >
               <Text style={[navStyles.navText, screen === "prototypes" && navStyles.navTextActive]}>
-                Prototypes
+                Briefing
               </Text>
             </TouchableOpacity>
           </View>
