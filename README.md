@@ -1,6 +1,6 @@
 # Inbox App — Morning Briefing Prototype
 
-A React Native (Expo Web) prototype that displays a batched email briefing UI connected to a real Gmail inbox via OAuth.
+A React Native (Expo Web) prototype that displays a batched email briefing UI connected to a real Gmail inbox via OAuth. Emails are classified client-side using a comprehensive rules framework and displayed in a tiered, grouped UI.
 
 ## Architecture
 
@@ -62,36 +62,107 @@ npx expo start --web --port 8083
 
 | File | Purpose |
 |------|---------|
-| `src/screens/MorningBrief.tsx` | Main briefing screen — handles loading/disconnected/connected states |
+| `src/screens/MorningBrief.tsx` | Main briefing screen — tiered view with grouped accordions |
 | `src/data/briefing.ts` | Types (`BriefingEmail`, `Briefing`), mock data fallback, `createBriefingFromGmail()` factory |
 | `src/services/gmail.ts` | API client — `checkSession()`, `getAuthUrl()`, `fetchEmails()` |
-| `src/services/classify.ts` | Heuristic email classifier — maps Gmail messages to priority/glance/low tiers |
+| `src/services/classify.ts` | Full classification engine — rules framework implementation |
 | `src/hooks/useCountdown.ts` | Countdown timer hook for next-briefing display |
 | `orbit-ds/` | Orbit Design System — shared component library |
+| `docs/classification-rules.md` | Source-of-truth classification framework (categories, action types, decision tree) |
 
-## Email Classification (Client-Side Heuristics)
+## Email Classification
 
-The classifier in `src/services/classify.ts` sorts emails into three tiers:
+### Framework
 
-| Tier | Criteria | UI Treatment |
-|------|----------|--------------|
-| **Priority** | Starred, or Gmail IMPORTANT label + unread from real person | Elevated card with expand/collapse |
-| **Glance** | Unread from non-automated sender | Row with expand-on-tap |
-| **Low** | Automated/promo senders, social, forums, already-read | Collapsed summary bar |
+The classifier in `src/services/classify.ts` implements the comprehensive rules framework documented in `docs/classification-rules.md`. It evaluates emails in strict priority order:
 
-Detection signals:
-- `noreply`, `no-reply`, `notifications@` etc. → automated
-- `CATEGORY_PROMOTIONS`, `CATEGORY_SOCIAL`, `CATEGORY_FORUMS` labels → low
-- Starred → always priority
-- Unread + real sender → glance
+1. **Timely rules** — OTP codes, verification, security alerts, `URGENT`, same-day meeting changes
+2. **Spam detection** — phishing patterns + Gmail SPAM label
+3. **Precise classification rules** — Calendar invites, Action items (bills/deadlines/docusigns), Payment confirmations, Packages/shipping, Collaboration comments
+4. **Label + sender heuristics** — Gmail's `CATEGORY_PROMOTIONS`, `CATEGORY_FORUMS`, `CATEGORY_SOCIAL`, `CATEGORY_UPDATES` labels, plus sender pattern tables
+5. **Real-person detection** — personal email domain (gmail, yahoo, outlook, etc.) + not automated subject pattern
+6. **Default** → Other (BriefAction)
 
-## UI Features
+### Categories & Action Types
 
+The framework defines 4 action types from `docs/classification-rules.md`:
+
+| Action Type | Behavior |
+|-------------|----------|
+| **InboxAction** | Stays in inbox, no processing — for human decision-making |
+| **DraftAction** | Stays in inbox, AI drafts reply — for emails needing responses |
+| **BriefAction** | Archived, included in daily Brief — for informational content |
+| **UnsubscribeAction** | Archived, sender blocked — for spam |
+
+### Categories → UI Tiers
+
+| UI Tier | Categories | UI Treatment |
+|---------|-----------|--------------|
+| **Priority** | Timely, Important Context, Important Draft, Important SOP, Important Info, Action | Elevated card with expand/collapse, suggested action chip |
+| **Worth a Glance** | Calendar, Payments, Packages, Comments, Newsletter, Social, Updates | Grouped accordion bundles by category |
+| **Low Priority** | Promotion, Other, Spam | Collapsed summary bar |
+
+### Real-Person Detection
+
+A sender is classified as a "real person" (→ Priority) only if:
+- From a **personal email domain** (gmail.com, yahoo.com, outlook.com, icloud.com, etc.)
+- NOT an automated sender (noreply, no-reply, mailer-daemon, etc.)
+- NOT a promo/newsletter/social sender pattern
+- Subject does NOT match automated patterns (daily report, product update, order confirmed, etc.)
+
+This prevents company newsletters, product updates, and automated reports from flooding Priority even when sent by named individuals.
+
+## UI Structure
+
+### Briefing View (default)
+
+```
+┌─────────────────────────────────────┐
+│  MORNING BRIEFING                   │
+│  Good morning, Matt.                │
+│  user@gmail.com                     │
+│  [Connect Gmail] (if disconnected)  │
+│  3 priority · 8 glance · 4 filtered │
+│  Next briefing in 5:30  [Get it now]│
+├─────────────────────────────────────┤
+│  ● PRIORITY          3 items        │
+│  ├─ Email subject                   │
+│  │  From · Category           ▾     │
+│  │  (expanded: detail, AI reason,   │
+│  │   suggested action, Open email)  │
+│  ├─ ...                             │
+├─────────────────────────────────────┤
+│  Worth a Glance                     │
+│  ┌─ Newsletter (3 emails)     ▾     │
+│  │  ├─ Email 1                      │
+│  │  ├─ Email 2                      │
+│  │  └─ Email 3                      │
+│  ┌─ Packages (2 emails)       ▾     │
+│  │  └─ ...                          │
+│  ┌─ Social (2 emails)         ▾     │
+│  │  └─ ...                          │
+│  ┌─ Updates (1 email)         ▾     │
+│  │  └─ ...                          │
+├─────────────────────────────────────┤
+│  4 low-priority — filtered     ▾    │
+│  (expands to show promo/other)      │
+├─────────────────────────────────────┤
+│  Switch to chronological view →     │
+└─────────────────────────────────────┘
+```
+
+### Every email, when expanded, shows:
+- Preview/detail text
+- AI classification reason tag
+- **"Open email →"** chip — opens the actual email in Gmail (all sections, always)
+
+### Additional UI features:
 - **Greyscale design** — minimal, newspaper-style aesthetic
-- **Progressive disclosure** — tap to expand any email for details + AI reason tag
+- **Progressive disclosure** — tap to expand any email for details
 - **Countdown timer** — shows time until next briefing with "Get it now" pull-early
 - **Chronological toggle** — switch between tiered briefing view and flat chronological list
 - **Graceful fallback** — shows hardcoded mock data when backend is unavailable
+- **Loading state** — spinner during session check, no flash of mock data
 
 ## API Contract
 
@@ -132,3 +203,15 @@ Redirects to Google OAuth consent, then back to the redirect URL after auth.
 ```bash
 npx tsc --noEmit  # should pass clean
 ```
+
+## Extending the Classifier
+
+To add a new category or adjust classification:
+
+1. **Add category** to the `Category` type union in `classify.ts`
+2. **Add pattern tables** (e.g., `NEW_CAT_FROM_PATTERNS`, `NEW_CAT_SUBJECT_PATTERNS`)
+3. **Add detection logic** in `classify()` at the appropriate priority level
+4. **Map to tier** in `tierFromClassification()` — priority, uncertain (glance), or low
+5. **The UI auto-groups** — any new category in the glance tier automatically gets its own accordion bundle
+
+The canonical classification rules are in `docs/classification-rules.md`. Keep that doc in sync when changing classifier behavior.

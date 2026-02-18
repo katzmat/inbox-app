@@ -100,7 +100,7 @@ function PriorityCard({
           />
           <View style={styles.actions}>
             <Button label={email.suggestedAction} variant="neutral" size="sm" />
-            <Button label="Full email →" variant="tertiary" size="sm" />
+            <OpenEmailChip gmailId={email.gmailId} />
           </View>
         </View>
       )}
@@ -121,41 +121,84 @@ function GlanceRow({
     <TouchableOpacity
       onPress={onToggle}
       activeOpacity={0.7}
-      style={styles.glanceRow}
+      style={styles.glanceItemRow}
     >
-      <View style={styles.radarRow}>
-        <View style={styles.glanceDot} />
-        <View style={{ flex: 1 }}>
-          <OrbitText variant="label4" color={G.black}>
-            {email.subject}
-          </OrbitText>
-          <OrbitText
-            variant="caption2"
-            color={G.muted}
-            style={{ marginTop: 2 }}
-          >
-            {email.from}
-          </OrbitText>
-          {expanded && (
-            <View style={{ marginTop: spacing[2] }}>
-              <OrbitText
-                variant="xSmall"
-                color={G.dark}
-                style={{ lineHeight: 20 }}
-              >
-                {email.detail}
-              </OrbitText>
+      <View style={{ flex: 1 }}>
+        <OrbitText variant="label4" color={G.black}>
+          {email.subject}
+        </OrbitText>
+        <OrbitText
+          variant="caption2"
+          color={G.muted}
+          style={{ marginTop: 2 }}
+        >
+          {email.from}
+        </OrbitText>
+        {expanded && (
+          <View style={{ marginTop: spacing[2] }}>
+            <OrbitText
+              variant="xSmall"
+              color={G.dark}
+              style={{ lineHeight: 20 }}
+            >
+              {email.detail}
+            </OrbitText>
+            <View style={styles.actions}>
               <Tag
                 label={`AI: ${email.reason}`}
                 color={G.tagBg}
                 textColor={G.mid}
               />
+              <OpenEmailChip gmailId={email.gmailId} />
             </View>
-          )}
-        </View>
-        <Text style={styles.chevronSmall}>{expanded ? "▴" : "▾"}</Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
+  );
+}
+
+/** Accordion group for a category within the Glance section */
+function GlanceCategoryGroup({
+  category,
+  emails,
+  expanded,
+  onToggle,
+}: {
+  category: string;
+  emails: BriefingEmail[];
+  expanded: number | null;
+  onToggle: (id: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={styles.glanceGroup}>
+      <TouchableOpacity
+        onPress={() => setOpen(!open)}
+        activeOpacity={0.7}
+        style={styles.glanceGroupHeader}
+      >
+        <View style={styles.glanceDot} />
+        <View style={{ flex: 1 }}>
+          <OrbitText variant="label3" color={G.dark}>
+            {category}
+          </OrbitText>
+          <OrbitText variant="caption2" color={G.muted} style={{ marginTop: 2 }}>
+            {emails.length} {emails.length === 1 ? "email" : "emails"}
+          </OrbitText>
+        </View>
+        <Text style={styles.chevronSmall}>{open ? "▴" : "▾"}</Text>
+      </TouchableOpacity>
+      {open &&
+        emails.map((email) => (
+          <GlanceRow
+            key={email.id}
+            email={email}
+            expanded={expanded === email.id}
+            onToggle={() => onToggle(email.id)}
+          />
+        ))}
+    </View>
   );
 }
 
@@ -196,14 +239,22 @@ export default function MorningBrief() {
     return () => { cancelled = true; };
   }, []);
 
-  const activeBriefing = liveBriefing ?? morningBriefing;
-  const tiers = emailsByTier(activeBriefing);
-  const stats = briefingStats(activeBriefing);
+  // Only fall back to mock data when confirmed disconnected
+  const activeBriefing =
+    connState === "disconnected" && !liveBriefing
+      ? morningBriefing
+      : liveBriefing;
+  const emptyBriefing: Briefing = {
+    id: "empty", label: "", time: "", isActive: false, isFuture: false, emails: [],
+  };
+  const briefing = activeBriefing ?? emptyBriefing;
+  const tiers = emailsByTier(briefing);
+  const stats = briefingStats(briefing);
 
   const toggle = (id: number) =>
     setExpanded(expanded === id ? null : id);
 
-  const allEmails = activeBriefing.emails;
+  const allEmails = briefing.emails;
 
   const handleConnectGmail = () => {
     const url = getAuthUrl();
@@ -318,11 +369,14 @@ export default function MorningBrief() {
                       >
                         {email.detail}
                       </OrbitText>
-                      <Tag
-                        label={`AI: ${email.reason}`}
-                        color={G.tagBg}
-                        textColor={G.mid}
-                      />
+                      <View style={styles.actions}>
+                        <Tag
+                          label={`AI: ${email.reason}`}
+                          color={G.tagBg}
+                          textColor={G.mid}
+                        />
+                        <OpenEmailChip gmailId={email.gmailId} />
+                      </View>
                     </View>
                   )}
                 </View>
@@ -357,14 +411,15 @@ export default function MorningBrief() {
               ))}
             </Card>
 
-            {/* Glance */}
+            {/* Glance — grouped by category */}
             <SectionHeader label="Worth a Glance" />
-            {tiers.uncertain.map((email) => (
-              <GlanceRow
-                key={email.id}
-                email={email}
-                expanded={expanded === email.id}
-                onToggle={() => toggle(email.id)}
+            {groupByCategory(tiers.uncertain).map((group) => (
+              <GlanceCategoryGroup
+                key={group.category}
+                category={group.category}
+                emails={group.emails}
+                expanded={expanded}
+                onToggle={toggle}
               />
             ))}
 
@@ -463,11 +518,14 @@ function LowSummaryBar({
                   >
                     {email.preview}
                   </OrbitText>
-                  <Tag
-                    label={`AI: ${email.reason}`}
-                    color={G.tagBg}
-                    textColor={G.muted}
-                  />
+                  <View style={styles.actions}>
+                    <Tag
+                      label={`AI: ${email.reason}`}
+                      color={G.tagBg}
+                      textColor={G.muted}
+                    />
+                    <OpenEmailChip gmailId={email.gmailId} />
+                  </View>
                 </View>
               )}
             </View>
@@ -478,6 +536,43 @@ function LowSummaryBar({
 }
 
 // ─── Helpers ──────────────────────────────────────────
+
+function openEmail(gmailId?: string) {
+  if (!gmailId) return;
+  const url = `https://mail.google.com/mail/u/0/#inbox/${gmailId}`;
+  if (Platform.OS === "web") {
+    window.open(url, "_blank");
+  } else {
+    Linking.openURL(url);
+  }
+}
+
+function OpenEmailChip({ gmailId }: { gmailId?: string }) {
+  if (!gmailId) return null;
+  return (
+    <TouchableOpacity
+      onPress={() => openEmail(gmailId)}
+      activeOpacity={0.7}
+      style={styles.openEmailChip}
+    >
+      <Text style={styles.openEmailChipText}>Open email →</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Group emails by category, preserving order of first appearance */
+function groupByCategory(emails: BriefingEmail[]): { category: string; emails: BriefingEmail[] }[] {
+  const map = new Map<string, BriefingEmail[]>();
+  for (const email of emails) {
+    const existing = map.get(email.category);
+    if (existing) {
+      existing.push(email);
+    } else {
+      map.set(email.category, [email]);
+    }
+  }
+  return Array.from(map.entries()).map(([category, emails]) => ({ category, emails }));
+}
 
 function StatPill({
   label,
@@ -595,25 +690,42 @@ const styles = StyleSheet.create({
   },
   actions: { flexDirection: "row", gap: spacing[2], marginTop: spacing[1] },
   // Glance
-  glanceRow: {
-    paddingHorizontal: spacing[5],
-    paddingVertical: 14,
+  glanceGroup: {
     backgroundColor: G.white,
     borderRadius: radius.md,
     marginBottom: spacing[2],
     ...shadows.cardSubtle,
   },
-  radarRow: {
+  glanceGroupHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing[3],
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[4],
+  },
+  glanceItemRow: {
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: G.line,
   },
   glanceDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: G.muted,
-    marginTop: 6,
+    marginTop: 2,
+  },
+  openEmailChip: {
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[1],
+    borderRadius: radius.sm,
+    backgroundColor: G.bg,
+  },
+  openEmailChipText: {
+    fontSize: 12,
+    color: G.mid,
+    fontWeight: "500",
   },
   chevron: { fontSize: 18, color: G.light },
   chevronSmall: { fontSize: 14, color: G.light, marginLeft: spacing[2] },
