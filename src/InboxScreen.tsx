@@ -26,13 +26,12 @@ const G = {
   line: "#e8e8e8",
 };
 
-function openEmail(gmailId?: string) {
-  if (!gmailId) return;
-  const url = `https://mail.google.com/mail/u/0/#inbox/${gmailId}`;
+function openEmail(webLink?: string) {
+  if (!webLink) return;
   if (Platform.OS === "web") {
-    window.open(url, "_blank");
+    window.open(webLink, "_blank");
   } else {
-    Linking.openURL(url);
+    Linking.openURL(webLink);
   }
 }
 
@@ -44,7 +43,7 @@ function timeAgo(): string {
 function InboxRow({ email }: { email: BriefingEmail }) {
   return (
     <TouchableOpacity
-      onPress={() => openEmail(email.gmailId)}
+      onPress={() => openEmail(email.webLink)}
       activeOpacity={0.7}
       style={styles.row}
     >
@@ -75,7 +74,7 @@ function InboxRow({ email }: { email: BriefingEmail }) {
 }
 
 export default function InboxScreen() {
-  const { connState, userEmail, briefing, handleConnectGmail } =
+  const { connState, userEmail, briefing } =
     useBriefingData();
 
   return (
@@ -100,16 +99,9 @@ export default function InboxScreen() {
 
       {connState === "disconnected" && (
         <View style={styles.centered}>
-          <OrbitText variant="body1" color={G.muted} style={{ marginBottom: spacing[4] }}>
-            Connect Gmail to see your inbox
+          <OrbitText variant="body1" color={G.muted}>
+            Not connected — please log in.
           </OrbitText>
-          <TouchableOpacity
-            onPress={handleConnectGmail}
-            style={styles.connectBtn}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.connectBtnText}>Connect Gmail</Text>
-          </TouchableOpacity>
         </View>
       )}
 

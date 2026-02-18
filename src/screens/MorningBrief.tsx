@@ -95,7 +95,7 @@ function PriorityCard({
           />
           <View style={styles.actions}>
             <Button label={email.suggestedAction} variant="neutral" size="sm" />
-            <OpenEmailChip gmailId={email.gmailId} />
+            <OpenEmailChip webLink={email.webLink} />
           </View>
         </View>
       )}
@@ -144,7 +144,7 @@ function GlanceRow({
                 color={G.tagBg}
                 textColor={G.mid}
               />
-              <OpenEmailChip gmailId={email.gmailId} />
+              <OpenEmailChip webLink={email.webLink} />
             </View>
           </View>
         )}
@@ -204,7 +204,7 @@ export default function MorningBrief() {
   const [chronological, setChronological] = useState(false);
   const { formatted, pullEarly, pulled } = useCountdown(5 * 3600 + 30 * 60);
 
-  const { connState, userEmail, briefing, tiers, stats, handleConnectGmail } =
+  const { connState, userEmail, briefing, tiers, stats } =
     useBriefingData();
 
   const toggle = (id: number) =>
@@ -240,16 +240,6 @@ export default function MorningBrief() {
             : TODAY}
         </OrbitText>
 
-        {/* Connect Gmail banner when disconnected */}
-        {connState === "disconnected" && (
-          <TouchableOpacity
-            onPress={handleConnectGmail}
-            style={styles.connectBtn}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.connectBtnText}>Connect Gmail</Text>
-          </TouchableOpacity>
-        )}
         {connState === "loading" && (
           <ActivityIndicator
             color="rgba(255,255,255,0.5)"
@@ -322,7 +312,7 @@ export default function MorningBrief() {
                           color={G.tagBg}
                           textColor={G.mid}
                         />
-                        <OpenEmailChip gmailId={email.gmailId} />
+                        <OpenEmailChip webLink={email.webLink} />
                       </View>
                     </View>
                   )}
@@ -471,7 +461,7 @@ function LowSummaryBar({
                       color={G.tagBg}
                       textColor={G.muted}
                     />
-                    <OpenEmailChip gmailId={email.gmailId} />
+                    <OpenEmailChip webLink={email.webLink} />
                   </View>
                 </View>
               )}
@@ -484,21 +474,20 @@ function LowSummaryBar({
 
 // ─── Helpers ──────────────────────────────────────────
 
-function openEmail(gmailId?: string) {
-  if (!gmailId) return;
-  const url = `https://mail.google.com/mail/u/0/#inbox/${gmailId}`;
+function openEmail(webLink?: string) {
+  if (!webLink) return;
   if (Platform.OS === "web") {
-    window.open(url, "_blank");
+    window.open(webLink, "_blank");
   } else {
-    Linking.openURL(url);
+    Linking.openURL(webLink);
   }
 }
 
-function OpenEmailChip({ gmailId }: { gmailId?: string }) {
-  if (!gmailId) return null;
+function OpenEmailChip({ webLink }: { webLink?: string }) {
+  if (!webLink) return null;
   return (
     <TouchableOpacity
-      onPress={() => openEmail(gmailId)}
+      onPress={() => openEmail(webLink)}
       activeOpacity={0.7}
       style={styles.openEmailChip}
     >

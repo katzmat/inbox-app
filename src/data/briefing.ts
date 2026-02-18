@@ -6,6 +6,7 @@ export type BriefingTier = "priority" | "uncertain" | "low";
 export type BriefingEmail = {
   id: number;
   gmailId?: string;
+  webLink?: string;
   from: string;
   subject: string;
   preview: string;

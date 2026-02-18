@@ -47,21 +47,20 @@ const G = {
 
 // ─── Helpers ──────────────────────────────────────────
 
-function openEmail(gmailId?: string) {
-  if (!gmailId) return;
-  const url = `https://mail.google.com/mail/u/0/#inbox/${gmailId}`;
+function openEmail(webLink?: string) {
+  if (!webLink) return;
   if (Platform.OS === "web") {
-    window.open(url, "_blank");
+    window.open(webLink, "_blank");
   } else {
-    Linking.openURL(url);
+    Linking.openURL(webLink);
   }
 }
 
-function OpenEmailChip({ gmailId }: { gmailId?: string }) {
-  if (!gmailId) return null;
+function OpenEmailChip({ webLink }: { webLink?: string }) {
+  if (!webLink) return null;
   return (
     <TouchableOpacity
-      onPress={() => openEmail(gmailId)}
+      onPress={() => openEmail(webLink)}
       activeOpacity={0.7}
       style={styles.openEmailChip}
     >
@@ -180,7 +179,7 @@ function PriorityCard({
             <TouchableOpacity style={styles.suggestedActionBtn} activeOpacity={0.7}>
               <Text style={styles.suggestedActionText}>{email.suggestedAction}</Text>
             </TouchableOpacity>
-            <OpenEmailChip gmailId={email.gmailId} />
+            <OpenEmailChip webLink={email.webLink} />
           </View>
         </View>
       )}
@@ -237,7 +236,7 @@ function NowCard({
             textColor={G.mid}
           />
           <View style={styles.actions}>
-            <OpenEmailChip gmailId={email.gmailId} />
+            <OpenEmailChip webLink={email.webLink} />
           </View>
         </View>
       )}
@@ -312,7 +311,7 @@ function GlanceBundle({
                       color={G.tagBg}
                       textColor={G.mid}
                     />
-                    <OpenEmailChip gmailId={email.gmailId} />
+                    <OpenEmailChip webLink={email.webLink} />
                   </View>
                 </View>
               )}
@@ -396,7 +395,7 @@ function LowSummaryBar({
                       color={G.tagBg}
                       textColor={G.muted}
                     />
-                    <OpenEmailChip gmailId={email.gmailId} />
+                    <OpenEmailChip webLink={email.webLink} />
                   </View>
                 </View>
               )}
@@ -458,7 +457,7 @@ function PinnedRow({
               textColor={G.mid}
             />
             <View style={styles.actions}>
-              <OpenEmailChip gmailId={email.gmailId} />
+              <OpenEmailChip webLink={email.webLink} />
             </View>
           </View>
         )}
@@ -742,7 +741,7 @@ function CatchupOverlay({
                   color={G.tagBg}
                   textColor={G.mid}
                 />
-                <OpenEmailChip gmailId={email.gmailId} />
+                <OpenEmailChip webLink={email.webLink} />
               </View>
 
               <View style={qfStyles.actionRow}>
@@ -790,7 +789,7 @@ export default function ProtoZones() {
   const [quickflowOpen, setQuickflowOpen] = useState(false);
   const { formatted, pullEarly, pulled } = useCountdown(5 * 3600 + 30 * 60);
 
-  const { connState, userEmail, briefing, tiers, stats, handleConnectGmail } =
+  const { connState, userEmail, briefing, tiers, stats } =
     useBriefingData();
 
   const { pinned, togglePin, removePin } = usePinnedEmails();
@@ -830,16 +829,6 @@ export default function ProtoZones() {
             {connState === "connected" && userEmail ? userEmail : TODAY}
           </OrbitText>
 
-          {/* Connect Gmail */}
-          {connState === "disconnected" && (
-            <TouchableOpacity
-              onPress={handleConnectGmail}
-              style={styles.connectBtn}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.connectBtnText}>Connect Gmail</Text>
-            </TouchableOpacity>
-          )}
           {connState === "loading" && (
             <ActivityIndicator
               color="rgba(255,255,255,0.5)"

@@ -350,7 +350,7 @@ function classify(msg: GmailMessage): Classification {
   }
 
   // ── Step 2: Spam detection ────────────────────────────
-  if (matchesAny(subject, SPAM_SUBJECT_PATTERNS) && labels.includes("SPAM")) {
+  if (matchesAny(subject, SPAM_SUBJECT_PATTERNS)) {
     return {
       category: "Spam",
       action: "UnsubscribeAction",
@@ -560,6 +560,7 @@ export function classifyEmails(messages: GmailMessage[]): BriefingEmail[] {
     return {
       id: i + 1,
       gmailId: msg.id,
+      webLink: msg.webLink,
       from: senderName(msg.from),
       subject: msg.subject,
       preview: msg.snippet,

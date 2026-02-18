@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Platform, Linking } from "react-native";
+import { useState, useEffect, useCallback } from "react";
 import {
   morningBriefing,
   emailsByTier,
@@ -10,7 +9,7 @@ import {
   type BriefingTier,
   type BriefingStats,
 } from "../data/briefing";
-import { checkSession, getAuthUrl, fetchEmails } from "../services/gmail";
+import { checkSession, fetchEmails, disconnect } from "../services/gmail";
 import { classifyEmails } from "../services/classify";
 
 type ConnectionState = "loading" | "disconnected" | "connected";
@@ -19,6 +18,7 @@ export function useBriefingData() {
   const [connState, setConnState] = useState<ConnectionState>("loading");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [liveBriefing, setLiveBriefing] = useState<Briefing | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +43,18 @@ export function useBriefingData() {
     return () => {
       cancelled = true;
     };
+  }, [refreshKey]);
+
+  const handleLoginSuccess = useCallback(() => {
+    setConnState("loading");
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  const handleDisconnect = useCallback(async () => {
+    await disconnect();
+    setConnState("disconnected");
+    setUserEmail(null);
+    setLiveBriefing(null);
   }, []);
 
   // Only fall back to mock data when confirmed disconnected
@@ -62,14 +74,13 @@ export function useBriefingData() {
   const tiers = emailsByTier(briefing);
   const stats = briefingStats(briefing);
 
-  const handleConnectGmail = () => {
-    const url = getAuthUrl();
-    if (Platform.OS === "web") {
-      window.location.href = url;
-    } else {
-      Linking.openURL(url);
-    }
+  return {
+    connState,
+    userEmail,
+    briefing,
+    tiers,
+    stats,
+    handleLoginSuccess,
+    handleDisconnect,
   };
-
-  return { connState, userEmail, briefing, tiers, stats, handleConnectGmail };
 }
