@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Linking,
+  ActivityIndicator,
+  Platform,
 } from "react-native";
 import {
   OrbitText,
@@ -21,11 +24,15 @@ import {
   morningBriefing,
   emailsByTier,
   briefingStats,
+  createBriefingFromGmail,
   USER_NAME,
   TODAY,
+  type Briefing,
   type BriefingEmail,
 } from "../data/briefing";
 import { useCountdown } from "../hooks/useCountdown";
+import { checkSession, getAuthUrl, fetchEmails } from "../services/gmail";
+import { classifyEmails } from "../services/classify";
 
 // ─── Greyscale palette ────────────────────────────────
 const G = {
@@ -154,18 +161,58 @@ function GlanceRow({
 
 // ─── Main Screen ──────────────────────────────────────
 
+type ConnectionState = "loading" | "disconnected" | "connected";
+
 export default function MorningBrief() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [chronological, setChronological] = useState(false);
   const { formatted, pullEarly, pulled } = useCountdown(5 * 3600 + 30 * 60);
 
-  const tiers = emailsByTier(morningBriefing);
-  const stats = briefingStats(morningBriefing);
+  const [connState, setConnState] = useState<ConnectionState>("loading");
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [liveBriefing, setLiveBriefing] = useState<Briefing | null>(null);
+
+  // On mount: check session → fetch emails if connected
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await checkSession();
+        if (cancelled) return;
+        if (!session.connected) {
+          setConnState("disconnected");
+          return;
+        }
+        setUserEmail(session.userEmail);
+        const messages = await fetchEmails(30);
+        if (cancelled) return;
+        const classified = classifyEmails(messages);
+        setLiveBriefing(createBriefingFromGmail(classified));
+        setConnState("connected");
+      } catch {
+        if (!cancelled) setConnState("disconnected");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const activeBriefing = liveBriefing ?? morningBriefing;
+  const tiers = emailsByTier(activeBriefing);
+  const stats = briefingStats(activeBriefing);
 
   const toggle = (id: number) =>
     setExpanded(expanded === id ? null : id);
 
-  const allEmails = morningBriefing.emails;
+  const allEmails = activeBriefing.emails;
+
+  const handleConnectGmail = () => {
+    const url = getAuthUrl();
+    if (Platform.OS === "web") {
+      window.location.href = url;
+    } else {
+      Linking.openURL(url);
+    }
+  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -190,8 +237,27 @@ export default function MorningBrief() {
           color="rgba(255,255,255,0.55)"
           style={{ fontWeight: "300", marginTop: 6 }}
         >
-          {TODAY}
+          {connState === "connected" && userEmail
+            ? userEmail
+            : TODAY}
         </OrbitText>
+
+        {/* Connect Gmail banner when disconnected */}
+        {connState === "disconnected" && (
+          <TouchableOpacity
+            onPress={handleConnectGmail}
+            style={styles.connectBtn}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.connectBtnText}>Connect Gmail</Text>
+          </TouchableOpacity>
+        )}
+        {connState === "loading" && (
+          <ActivityIndicator
+            color="rgba(255,255,255,0.5)"
+            style={{ marginTop: spacing[4] }}
+          />
+        )}
 
         {/* Stats row */}
         <View style={styles.statsRow}>
@@ -468,6 +534,21 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[1],
   },
   pullBtnText: { fontSize: 12, color: "rgba(255,255,255,0.6)", fontWeight: "500" },
+  connectBtn: {
+    marginTop: spacing[4],
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[2],
+    alignSelf: "flex-start",
+  },
+  connectBtnText: {
+    fontSize: 13,
+    color: G.white,
+    fontWeight: "500",
+    letterSpacing: 0.5,
+  },
   content: { paddingHorizontal: spacing[6], marginTop: -spacing[6] },
   // Priority
   prioritySection: { borderRadius: radius.lg },

@@ -240,3 +240,16 @@ export function briefingStats(briefing: Briefing): BriefingStats {
 
 export const USER_NAME = "Matt";
 export const TODAY = "Tuesday, February 10, 2026";
+
+// ─── Gmail → Briefing Factory ────────────────────────
+
+export function createBriefingFromGmail(classifiedEmails: BriefingEmail[]): Briefing {
+  return {
+    id: "morning-live",
+    label: "Morning Briefing",
+    time: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+    isActive: true,
+    isFuture: false,
+    emails: classifiedEmails,
+  };
+}
