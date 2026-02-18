@@ -1,88 +1,135 @@
-import React, { useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import React from "react";
 import {
-  StatusBar,
-  TopNavigation,
-  TabBar,
-  ListItem,
-  AdContainer,
-  FloatingActionBar,
-  colors,
-} from "../orbit-ds";
-import type { TabItem } from "../orbit-ds";
-import { emails } from "./data/emails";
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Platform,
+  Linking,
+} from "react-native";
+import { OrbitText, spacing, radius, shadows } from "../orbit-ds";
+import { useBriefingData } from "./hooks/useBriefingData";
+import type { BriefingEmail } from "./data/briefing";
 
-const TABS: TabItem[] = [
-  { label: "All" },
-  { label: "Primary" },
-  { label: "Offers", count: 3 },
-  { label: "Other", count: 23 },
-];
+// ─── Greyscale palette ────────────────────────────────
+const G = {
+  black: "#1d1d1f",
+  dark: "#333",
+  mid: "#666",
+  muted: "#999",
+  light: "#bbb",
+  faint: "#ddd",
+  bg: "#f5f5f5",
+  white: "#fff",
+  line: "#e8e8e8",
+};
 
-function YahooPlusBadge() {
-  return (
-    <View style={styles.yahooPlusBadge}>
-      <Text style={styles.ypText}>Y+</Text>
-    </View>
-  );
+function openEmail(gmailId?: string) {
+  if (!gmailId) return;
+  const url = `https://mail.google.com/mail/u/0/#inbox/${gmailId}`;
+  if (Platform.OS === "web") {
+    window.open(url, "_blank");
+  } else {
+    Linking.openURL(url);
+  }
 }
 
-function SelectButton() {
+function timeAgo(): string {
+  // Simple relative time — all emails are "recent" in this prototype
+  return "now";
+}
+
+function InboxRow({ email }: { email: BriefingEmail }) {
   return (
-    <TouchableOpacity>
-      <Text style={styles.selectText}>Select</Text>
+    <TouchableOpacity
+      onPress={() => openEmail(email.gmailId)}
+      activeOpacity={0.7}
+      style={styles.row}
+    >
+      {/* Avatar circle */}
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>
+          {email.from.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+
+      {/* Content */}
+      <View style={styles.rowContent}>
+        <View style={styles.rowTop}>
+          <Text style={styles.sender} numberOfLines={1}>
+            {email.from}
+          </Text>
+          <Text style={styles.time}>{timeAgo()}</Text>
+        </View>
+        <Text style={styles.subject} numberOfLines={1}>
+          {email.subject}
+        </Text>
+        <Text style={styles.preview} numberOfLines={1}>
+          {email.preview}
+        </Text>
+      </View>
     </TouchableOpacity>
   );
 }
 
 export default function InboxScreen() {
-  const [activeTab, setActiveTab] = useState("Primary");
+  const { connState, userEmail, briefing, handleConnectGmail } =
+    useBriefingData();
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
-      <TopNavigation
-        title="Inbox"
-        avatarImageUri="http://localhost:3845/assets/73404019ea9ad1a8cd9000a51651146c4ec4586b.png"
-        rightAction={<YahooPlusBadge />}
-      />
-      <TabBar
-        tabs={TABS}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        rightAction={<SelectButton />}
-      />
-      <FlatList
-        data={emails}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          if (item.isAd) {
-            return (
-              <AdContainer
-                brand={item.adBrand ?? item.sender}
-                preview={item.preview}
-                actions={item.actions}
-              />
-            );
-          }
-          return (
-            <ListItem
-              sender={item.sender}
-              subject={item.subject}
-              preview={item.preview}
-              time={item.time}
-              unread={item.unread}
-              starred={item.starred}
-              threadCount={item.threadCount}
-              hasReply={item.hasReply}
-              actions={item.actions}
-            />
-          );
-        }}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
-      <FloatingActionBar />
+      {/* Header */}
+      <View style={styles.header}>
+        <OrbitText variant="title3" color={G.black} style={{ fontWeight: "600" }}>
+          Inbox
+        </OrbitText>
+        {connState === "connected" && userEmail && (
+          <OrbitText variant="caption2" color={G.muted}>
+            {userEmail}
+          </OrbitText>
+        )}
+      </View>
+
+      {connState === "loading" && (
+        <View style={styles.centered}>
+          <ActivityIndicator color={G.muted} />
+        </View>
+      )}
+
+      {connState === "disconnected" && (
+        <View style={styles.centered}>
+          <OrbitText variant="body1" color={G.muted} style={{ marginBottom: spacing[4] }}>
+            Connect Gmail to see your inbox
+          </OrbitText>
+          <TouchableOpacity
+            onPress={handleConnectGmail}
+            style={styles.connectBtn}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.connectBtnText}>Connect Gmail</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {connState === "connected" && (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Email count */}
+          <View style={styles.countBar}>
+            <OrbitText variant="caption2" color={G.muted}>
+              {briefing.emails.length} messages
+            </OrbitText>
+          </View>
+
+          {/* Flat chronological list — no tiers, no categories, just emails */}
+          {briefing.emails.map((email) => (
+            <InboxRow key={email.id} email={email} />
+          ))}
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -90,28 +137,91 @@ export default function InboxScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: G.white,
   },
-  listContent: {
-    paddingBottom: 120,
+  header: {
+    paddingHorizontal: spacing[6],
+    paddingTop: spacing[5],
+    paddingBottom: spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: G.line,
+    backgroundColor: G.white,
   },
-  yahooPlusBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.brand,
+  centered: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    padding: spacing[8],
   },
-  ypText: {
-    color: colors.foreground.onColor,
-    fontSize: 11,
-    fontWeight: "700",
+  connectBtn: {
+    backgroundColor: G.dark,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing[5],
+    paddingVertical: spacing[2.5],
   },
-  selectText: {
-    fontSize: 16,
+  connectBtnText: {
+    fontSize: 14,
+    color: G.white,
     fontWeight: "600",
-    color: colors.brand,
-    lineHeight: 24,
+  },
+  countBar: {
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[2],
+    backgroundColor: G.bg,
+    borderBottomWidth: 1,
+    borderBottomColor: G.line,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: G.line,
+    gap: spacing[3],
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: G.bg,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  avatarText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: G.mid,
+  },
+  rowContent: {
+    flex: 1,
+  },
+  rowTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sender: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: G.black,
+    flex: 1,
+    marginRight: spacing[2],
+  },
+  time: {
+    fontSize: 12,
+    color: G.light,
+  },
+  subject: {
+    fontSize: 14,
+    fontWeight: "400",
+    color: G.dark,
+    marginTop: 2,
+  },
+  preview: {
+    fontSize: 13,
+    color: G.muted,
+    marginTop: 2,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -21,18 +21,13 @@ import {
   shadows,
 } from "../../orbit-ds";
 import {
-  morningBriefing,
-  emailsByTier,
-  briefingStats,
-  createBriefingFromGmail,
   USER_NAME,
   TODAY,
-  type Briefing,
   type BriefingEmail,
 } from "../data/briefing";
 import { useCountdown } from "../hooks/useCountdown";
-import { checkSession, getAuthUrl, fetchEmails } from "../services/gmail";
-import { classifyEmails } from "../services/classify";
+import { useBriefingData } from "../hooks/useBriefingData";
+import { groupByCategory } from "../utils/groupByCategory";
 
 // ─── Greyscale palette ────────────────────────────────
 const G = {
@@ -204,66 +199,18 @@ function GlanceCategoryGroup({
 
 // ─── Main Screen ──────────────────────────────────────
 
-type ConnectionState = "loading" | "disconnected" | "connected";
-
 export default function MorningBrief() {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [chronological, setChronological] = useState(false);
   const { formatted, pullEarly, pulled } = useCountdown(5 * 3600 + 30 * 60);
 
-  const [connState, setConnState] = useState<ConnectionState>("loading");
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [liveBriefing, setLiveBriefing] = useState<Briefing | null>(null);
-
-  // On mount: check session → fetch emails if connected
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const session = await checkSession();
-        if (cancelled) return;
-        if (!session.connected) {
-          setConnState("disconnected");
-          return;
-        }
-        setUserEmail(session.userEmail);
-        const messages = await fetchEmails(30);
-        if (cancelled) return;
-        const classified = classifyEmails(messages);
-        setLiveBriefing(createBriefingFromGmail(classified));
-        setConnState("connected");
-      } catch {
-        if (!cancelled) setConnState("disconnected");
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Only fall back to mock data when confirmed disconnected
-  const activeBriefing =
-    connState === "disconnected" && !liveBriefing
-      ? morningBriefing
-      : liveBriefing;
-  const emptyBriefing: Briefing = {
-    id: "empty", label: "", time: "", isActive: false, isFuture: false, emails: [],
-  };
-  const briefing = activeBriefing ?? emptyBriefing;
-  const tiers = emailsByTier(briefing);
-  const stats = briefingStats(briefing);
+  const { connState, userEmail, briefing, tiers, stats, handleConnectGmail } =
+    useBriefingData();
 
   const toggle = (id: number) =>
     setExpanded(expanded === id ? null : id);
 
   const allEmails = briefing.emails;
-
-  const handleConnectGmail = () => {
-    const url = getAuthUrl();
-    if (Platform.OS === "web") {
-      window.location.href = url;
-    } else {
-      Linking.openURL(url);
-    }
-  };
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -558,20 +505,6 @@ function OpenEmailChip({ gmailId }: { gmailId?: string }) {
       <Text style={styles.openEmailChipText}>Open email →</Text>
     </TouchableOpacity>
   );
-}
-
-/** Group emails by category, preserving order of first appearance */
-function groupByCategory(emails: BriefingEmail[]): { category: string; emails: BriefingEmail[] }[] {
-  const map = new Map<string, BriefingEmail[]>();
-  for (const email of emails) {
-    const existing = map.get(email.category);
-    if (existing) {
-      existing.push(email);
-    } else {
-      map.set(email.category, [email]);
-    }
-  }
-  return Array.from(map.entries()).map(([category, emails]) => ({ category, emails }));
 }
 
 function StatPill({

@@ -1,11 +1,11 @@
 import React from "react";
 import { View, StyleSheet } from "react-native";
-import MorningBrief from "./screens/MorningBrief";
+import ProtoZones from "./screens/ProtoZones";
 
 export default function PrototypeScreen() {
   return (
     <View style={styles.container}>
-      <MorningBrief />
+      <ProtoZones />
     </View>
   );
 }
