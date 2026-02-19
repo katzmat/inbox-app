@@ -239,6 +239,7 @@ function ThreadCard({ thread }: { thread: LifeThread }) {
 
 export default function ConceptLifeThreads() {
   const { connState, sections, stats } = useBriefingData();
+  const [urgentExpanded, setUrgentExpanded] = useState(false);
 
   if (connState === "loading") {
     return (
@@ -263,13 +264,44 @@ export default function ConceptLifeThreads() {
         </Text>
       </View>
 
-      {/* Urgent banner */}
+      {/* Urgent banner — tappable */}
       {urgentCount > 0 && (
-        <View style={styles.urgentBanner}>
+        <TouchableOpacity
+          onPress={() => setUrgentExpanded(!urgentExpanded)}
+          activeOpacity={0.8}
+          style={styles.urgentBanner}
+        >
           <Ionicons name="alert-circle" size={18} color={G.white} />
-          <Text style={styles.urgentText}>
+          <Text style={[styles.urgentText, { flex: 1 }]}>
             {urgentCount} thing{urgentCount !== 1 ? "s" : ""} need{urgentCount === 1 ? "s" : ""} your attention today
           </Text>
+          <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>
+            {urgentExpanded ? "▴" : "▾"}
+          </Text>
+        </TouchableOpacity>
+      )}
+      {urgentExpanded && sections.needsAttention.length > 0 && (
+        <View style={styles.urgentList}>
+          {sections.needsAttention.map((email) => (
+            <TouchableOpacity
+              key={email.id}
+              onPress={() => openEmail(email.webLink)}
+              activeOpacity={0.7}
+              style={styles.urgentItem}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.urgentItemFrom}>{email.from}</Text>
+                <Text style={styles.urgentItemSubject}>{email.subject}</Text>
+                {email.reason && (
+                  <Text style={styles.urgentItemReason}>{email.reason}</Text>
+                )}
+                {email.suggestedAction && (
+                  <Text style={styles.urgentItemAction}>→ {email.suggestedAction}</Text>
+                )}
+              </View>
+              <Ionicons name="open-outline" size={14} color={G.muted} />
+            </TouchableOpacity>
+          ))}
         </View>
       )}
 
@@ -315,6 +347,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: G.white,
+  },
+  urgentList: {
+    marginHorizontal: spacing[5],
+    backgroundColor: G.white,
+    borderRadius: radius.md,
+    marginTop: spacing[2],
+    overflow: "hidden",
+    ...shadows.cardSubtle,
+  },
+  urgentItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing[2],
+    padding: spacing[3],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: G.faint,
+  },
+  urgentItemFrom: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: G.mid,
+  },
+  urgentItemSubject: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: G.black,
+    marginTop: 1,
+  },
+  urgentItemReason: {
+    fontSize: 12,
+    color: G.muted,
+    marginTop: 2,
+  },
+  urgentItemAction: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: G.dark,
+    marginTop: 3,
   },
 
   threadList: {
