@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -20,14 +20,9 @@ import {
   radius,
   shadows,
 } from "../../orbit-ds";
-import {
-  USER_NAME,
-  TODAY,
-  type BriefingEmail,
-} from "../data/briefing";
+import { USER_NAME, TODAY, type BriefingEmail } from "../data/briefing";
 import { useCountdown } from "../hooks/useCountdown";
 import { useBriefingData } from "../hooks/useBriefingData";
-import { groupByCategory } from "../utils/groupByCategory";
 
 // ─── Greyscale palette ────────────────────────────────
 const G = {
@@ -55,6 +50,10 @@ function PriorityCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const displayDetail = email.summary || email.detail || email.snippet;
+  const displayReason = email.reason || "";
+  const displayAction = email.suggestedAction;
+
   return (
     <TouchableOpacity
       onPress={onToggle}
@@ -72,7 +71,7 @@ function PriorityCard({
             color={G.muted}
             style={{ marginTop: 3 }}
           >
-            {email.from} · {email.category}
+            {email.from}
           </OrbitText>
         </View>
         <Text style={[styles.chevron, expanded && styles.chevronExpanded]}>
@@ -86,15 +85,19 @@ function PriorityCard({
             color={G.dark}
             style={{ lineHeight: 22 }}
           >
-            {email.detail}
+            {displayDetail}
           </OrbitText>
-          <Tag
-            label={`AI: ${email.reason}`}
-            color={G.tagBg}
-            textColor={G.mid}
-          />
+          {displayReason ? (
+            <Tag
+              label={`AI: ${displayReason}`}
+              color={G.tagBg}
+              textColor={G.mid}
+            />
+          ) : null}
           <View style={styles.actions}>
-            <Button label={email.suggestedAction} variant="neutral" size="sm" />
+            {displayAction ? (
+              <Button label={displayAction} variant="neutral" size="sm" />
+            ) : null}
             <OpenEmailChip webLink={email.webLink} />
           </View>
         </View>
@@ -112,6 +115,10 @@ function GlanceRow({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const displayDetail =
+    email.summary || email.detail || email.snippet;
+  const displayReason = email.reason || "";
+
   return (
     <TouchableOpacity
       onPress={onToggle}
@@ -136,14 +143,16 @@ function GlanceRow({
               color={G.dark}
               style={{ lineHeight: 20 }}
             >
-              {email.detail}
+              {displayDetail}
             </OrbitText>
             <View style={styles.actions}>
-              <Tag
-                label={`AI: ${email.reason}`}
-                color={G.tagBg}
-                textColor={G.mid}
-              />
+              {displayReason ? (
+                <Tag
+                  label={`AI: ${displayReason}`}
+                  color={G.tagBg}
+                  textColor={G.mid}
+                />
+              ) : null}
               <OpenEmailChip webLink={email.webLink} />
             </View>
           </View>
@@ -162,8 +171,8 @@ function GlanceCategoryGroup({
 }: {
   category: string;
   emails: BriefingEmail[];
-  expanded: number | null;
-  onToggle: (id: number) => void;
+  expanded: string | number | null;
+  onToggle: (id: string | number) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -178,7 +187,11 @@ function GlanceCategoryGroup({
           <OrbitText variant="label3" color={G.dark}>
             {category}
           </OrbitText>
-          <OrbitText variant="caption2" color={G.muted} style={{ marginTop: 2 }}>
+          <OrbitText
+            variant="caption2"
+            color={G.muted}
+            style={{ marginTop: 2 }}
+          >
             {emails.length} {emails.length === 1 ? "email" : "emails"}
           </OrbitText>
         </View>
@@ -200,17 +213,21 @@ function GlanceCategoryGroup({
 // ─── Main Screen ──────────────────────────────────────
 
 export default function MorningBrief() {
-  const [expanded, setExpanded] = useState<number | null>(null);
+  const [expanded, setExpanded] = useState<string | number | null>(null);
   const [chronological, setChronological] = useState(false);
   const { formatted, pullEarly, pulled } = useCountdown(5 * 3600 + 30 * 60);
 
-  const { connState, userEmail, briefing, tiers, stats } =
+  const { connState, userEmail, profileStatus, sections, stats } =
     useBriefingData();
 
-  const toggle = (id: number) =>
-    setExpanded(expanded === id ? null : id);
+  const toggle = (id: string | number) => setExpanded(expanded === id ? null : id);
 
-  const allEmails = briefing.emails;
+  // Build flat list for chronological view
+  const allEmails: BriefingEmail[] = [
+    ...sections.needsAttention,
+    ...Object.values(sections.glance).flat(),
+    ...sections.low,
+  ];
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -219,7 +236,11 @@ export default function MorningBrief() {
         <OrbitText
           variant="legal"
           color="rgba(255,255,255,0.4)"
-          style={{ letterSpacing: 3, fontWeight: "600", marginBottom: spacing[2] }}
+          style={{
+            letterSpacing: 3,
+            fontWeight: "600",
+            marginBottom: spacing[2],
+          }}
         >
           MORNING BRIEFING
         </OrbitText>
@@ -235,9 +256,7 @@ export default function MorningBrief() {
           color="rgba(255,255,255,0.55)"
           style={{ fontWeight: "300", marginTop: 6 }}
         >
-          {connState === "connected" && userEmail
-            ? userEmail
-            : TODAY}
+          {connState === "connected" && userEmail ? userEmail : TODAY}
         </OrbitText>
 
         {connState === "loading" && (
@@ -247,11 +266,36 @@ export default function MorningBrief() {
           />
         )}
 
+        {profileStatus === "building" && connState === "connected" && (
+          <View style={styles.profileBuildingBanner}>
+            <ActivityIndicator
+              color="rgba(255,255,255,0.6)"
+              size="small"
+              style={{ marginRight: spacing[2] }}
+            />
+            <OrbitText variant="caption2" color="rgba(255,255,255,0.6)">
+              Building your profile... classifications will improve shortly.
+            </OrbitText>
+          </View>
+        )}
+
         {/* Stats row */}
         <View style={styles.statsRow}>
-          <StatPill label="priority" count={stats.priority} color={G.white} />
-          <StatPill label="glance" count={stats.uncertain} color="rgba(255,255,255,0.5)" />
-          <StatPill label="filtered" count={stats.low} color="rgba(255,255,255,0.25)" />
+          <StatPill
+            label="needs attention"
+            count={stats.needsAttention}
+            color={G.white}
+          />
+          <StatPill
+            label="worth a glance"
+            count={stats.glance}
+            color="rgba(255,255,255,0.5)"
+          />
+          <StatPill
+            label="filtered"
+            count={stats.low}
+            color="rgba(255,255,255,0.25)"
+          />
         </View>
 
         {/* Countdown / pull-early */}
@@ -267,7 +311,7 @@ export default function MorningBrief() {
             </>
           ) : (
             <OrbitText variant="caption2" color="rgba(255,255,255,0.5)">
-              Midday briefing pulled early ✓
+              Midday briefing pulled early
             </OrbitText>
           )}
         </View>
@@ -285,7 +329,7 @@ export default function MorningBrief() {
                 activeOpacity={0.7}
                 style={styles.chronoRow}
               >
-                <View style={[styles.chronoDot, tierDotColor(email.tier)]} />
+                <View style={[styles.chronoDot, tierDotColor(email)]} />
                 <View style={{ flex: 1 }}>
                   <OrbitText variant="label4" color={G.black}>
                     {email.subject}
@@ -295,7 +339,7 @@ export default function MorningBrief() {
                     color={G.muted}
                     style={{ marginTop: 2 }}
                   >
-                    {email.from} · {email.category}
+                    {email.from}
                   </OrbitText>
                   {expanded === email.id && (
                     <View style={{ marginTop: spacing[2] }}>
@@ -304,14 +348,16 @@ export default function MorningBrief() {
                         color={G.dark}
                         style={{ lineHeight: 20, marginBottom: spacing[2] }}
                       >
-                        {email.detail}
+                        {email.summary || email.snippet}
                       </OrbitText>
                       <View style={styles.actions}>
-                        <Tag
-                          label={`AI: ${email.reason}`}
-                          color={G.tagBg}
-                          textColor={G.mid}
-                        />
+                        {email.reason ? (
+                          <Tag
+                            label={`AI: ${email.reason}`}
+                            color={G.tagBg}
+                            textColor={G.mid}
+                          />
+                        ) : null}
                         <OpenEmailChip webLink={email.webLink} />
                       </View>
                     </View>
@@ -322,7 +368,7 @@ export default function MorningBrief() {
           </>
         ) : (
           <>
-            {/* Priority */}
+            {/* Needs Attention */}
             <Card elevation="default" style={styles.prioritySection}>
               <View style={styles.priorityHeader}>
                 <View style={styles.priorityDot} />
@@ -331,14 +377,14 @@ export default function MorningBrief() {
                   color={G.dark}
                   style={{ letterSpacing: 2, fontWeight: "600" }}
                 >
-                  PRIORITY
+                  NEEDS ATTENTION
                 </OrbitText>
                 <View style={{ flex: 1 }} />
                 <OrbitText variant="caption2" color={G.muted}>
-                  {stats.priority} items
+                  {stats.needsAttention} items
                 </OrbitText>
               </View>
-              {tiers.priority.map((email) => (
+              {sections.needsAttention.map((email) => (
                 <PriorityCard
                   key={email.id}
                   email={email}
@@ -348,13 +394,13 @@ export default function MorningBrief() {
               ))}
             </Card>
 
-            {/* Glance — grouped by category */}
+            {/* Glance — grouped by category from API */}
             <SectionHeader label="Worth a Glance" />
-            {groupByCategory(tiers.uncertain).map((group) => (
+            {Object.entries(sections.glance).map(([category, emails]) => (
               <GlanceCategoryGroup
-                key={group.category}
-                category={group.category}
-                emails={group.emails}
+                key={category}
+                category={category}
+                emails={emails}
                 expanded={expanded}
                 onToggle={toggle}
               />
@@ -362,7 +408,7 @@ export default function MorningBrief() {
 
             {/* Low — collapsed summary */}
             <LowSummaryBar
-              emails={tiers.low}
+              emails={sections.low}
               expanded={expanded}
               onToggle={toggle}
             />
@@ -384,9 +430,134 @@ export default function MorningBrief() {
           </OrbitText>
         </TouchableOpacity>
 
+        {/* Profile info */}
+        {connState === "connected" && (
+          <ProfileSection />
+        )}
+
         <View style={{ height: 120 }} />
       </View>
     </ScrollView>
+  );
+}
+
+// ─── Profile section ──────────────────────────────────
+
+type ProfileData = {
+  identity: { name?: string; email?: string; household?: string };
+  coordinationCircle: { name: string; role: string; email: string }[];
+  lifeThreads: { name: string; status: string; description?: string }[];
+  mailboxProfile: { primaryUses: string[]; signalToNoise: string | null };
+  meta: { generatedAt?: string; messagesSampled?: number };
+};
+
+function ProfileSection() {
+  const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [status, setStatus] = useState<string>("none");
+
+  useEffect(() => {
+    if (!open) return;
+    const base =
+      typeof window !== "undefined" && window.location.pathname.startsWith("/app")
+        ? window.location.origin
+        : "http://localhost:3000";
+    fetch(`${base}/api/profile`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        setStatus(data.status);
+        setProfile(data.profile ?? null);
+      })
+      .catch(() => {});
+  }, [open]);
+
+  return (
+    <View style={{ marginTop: spacing[4] }}>
+      <TouchableOpacity
+        onPress={() => setOpen(!open)}
+        activeOpacity={0.7}
+        style={styles.profileToggle}
+      >
+        <OrbitText variant="caption2" color={G.light}>
+          {open ? "Hide profile" : "Your profile"}
+        </OrbitText>
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.profilePanel}>
+          {status === "building" && (
+            <OrbitText variant="caption2" color={G.muted} style={{ marginBottom: spacing[3] }}>
+              Profile is still building...
+            </OrbitText>
+          )}
+          {status === "none" && (
+            <OrbitText variant="caption2" color={G.muted}>
+              No profile yet. It will be created on your next briefing refresh.
+            </OrbitText>
+          )}
+          {profile && (
+            <>
+              {profile.identity.name && (
+                <View style={styles.profileBlock}>
+                  <OrbitText variant="caption2" color={G.light} style={styles.profileLabel}>
+                    IDENTITY
+                  </OrbitText>
+                  <OrbitText variant="label4" color={G.dark}>
+                    {profile.identity.name}
+                  </OrbitText>
+                  {profile.identity.household && (
+                    <OrbitText variant="caption2" color={G.muted} style={{ marginTop: 2 }}>
+                      {profile.identity.household}
+                    </OrbitText>
+                  )}
+                </View>
+              )}
+
+              {profile.coordinationCircle.length > 0 && (
+                <View style={styles.profileBlock}>
+                  <OrbitText variant="caption2" color={G.light} style={styles.profileLabel}>
+                    KEY PEOPLE
+                  </OrbitText>
+                  {profile.coordinationCircle.map((p, i) => (
+                    <OrbitText key={i} variant="xSmall" color={G.dark} style={{ lineHeight: 20 }}>
+                      {p.name} — {p.role}
+                    </OrbitText>
+                  ))}
+                </View>
+              )}
+
+              {profile.lifeThreads.length > 0 && (
+                <View style={styles.profileBlock}>
+                  <OrbitText variant="caption2" color={G.light} style={styles.profileLabel}>
+                    LIFE THREADS
+                  </OrbitText>
+                  {profile.lifeThreads.map((t, i) => (
+                    <View key={i} style={{ marginBottom: 4 }}>
+                      <OrbitText variant="xSmall" color={G.dark}>
+                        {t.name}
+                        <OrbitText variant="caption2" color={G.muted}>
+                          {" "}({t.status})
+                        </OrbitText>
+                      </OrbitText>
+                      {t.description && (
+                        <OrbitText variant="caption2" color={G.muted} style={{ marginTop: 1 }}>
+                          {t.description}
+                        </OrbitText>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {profile.meta.generatedAt && (
+                <OrbitText variant="caption2" color={G.light} style={{ marginTop: spacing[2] }}>
+                  Built {new Date(profile.meta.generatedAt).toLocaleDateString()} from {profile.meta.messagesSampled} emails
+                </OrbitText>
+              )}
+            </>
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -398,8 +569,8 @@ function LowSummaryBar({
   onToggle,
 }: {
   emails: BriefingEmail[];
-  expanded: number | null;
-  onToggle: (id: number) => void;
+  expanded: string | number | null;
+  onToggle: (id: string | number) => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -422,7 +593,10 @@ function LowSummaryBar({
             color={G.light}
             style={{ marginTop: 4 }}
           >
-            {emails.map((e) => e.from).join(" · ")}
+            {emails
+              .slice(0, 5)
+              .map((e) => e.from)
+              .join(" · ")}
           </OrbitText>
         </View>
         <Text style={styles.chevron}>{open ? "▴" : "▾"}</Text>
@@ -453,14 +627,16 @@ function LowSummaryBar({
                     color={G.muted}
                     style={{ lineHeight: 20 }}
                   >
-                    {email.preview}
+                    {email.snippet}
                   </OrbitText>
                   <View style={styles.actions}>
-                    <Tag
-                      label={`AI: ${email.reason}`}
-                      color={G.tagBg}
-                      textColor={G.muted}
-                    />
+                    {email.reason ? (
+                      <Tag
+                        label={`AI: ${email.reason}`}
+                        color={G.tagBg}
+                        textColor={G.muted}
+                      />
+                    ) : null}
                     <OpenEmailChip webLink={email.webLink} />
                   </View>
                 </View>
@@ -513,9 +689,11 @@ function StatPill({
   );
 }
 
-function tierDotColor(tier: string) {
-  if (tier === "priority") return { backgroundColor: G.dark };
-  if (tier === "uncertain") return { backgroundColor: G.muted };
+function tierDotColor(email: BriefingEmail) {
+  // Determine tier from which section the email is in
+  // Since we flatten all emails, use urgencyType as a proxy
+  if (email.urgencyType) return { backgroundColor: G.dark };
+  if (email.glanceCategory) return { backgroundColor: G.muted };
   return { backgroundColor: G.light };
 }
 
@@ -529,6 +707,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing[8],
     paddingBottom: spacing[10],
   },
+  profileBuildingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing[3],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: radius.sm,
+  },
   statsRow: {
     flexDirection: "row",
     gap: spacing[4],
@@ -536,7 +723,11 @@ const styles = StyleSheet.create({
   },
   statPill: { alignItems: "center" },
   statCount: { fontSize: 28, fontWeight: "200", lineHeight: 32 },
-  statLabel: { fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 },
+  statLabel: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.35)",
+    marginTop: 2,
+  },
   countdownRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -550,24 +741,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[1],
   },
-  pullBtnText: { fontSize: 12, color: "rgba(255,255,255,0.6)", fontWeight: "500" },
-  connectBtn: {
-    marginTop: spacing[4],
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
-    borderRadius: radius.md,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
-    alignSelf: "flex-start",
-  },
-  connectBtnText: {
-    fontSize: 13,
-    color: G.white,
+  pullBtnText: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.6)",
     fontWeight: "500",
-    letterSpacing: 0.5,
   },
   content: { paddingHorizontal: spacing[6], marginTop: -spacing[6] },
-  // Priority
+  // Priority / Needs Attention
   prioritySection: { borderRadius: radius.lg },
   priorityHeader: {
     flexDirection: "row",
@@ -688,5 +868,25 @@ const styles = StyleSheet.create({
     marginTop: spacing[8],
     alignItems: "center",
     paddingVertical: spacing[4],
+  },
+  // Profile
+  profileToggle: {
+    alignItems: "center",
+    paddingVertical: spacing[3],
+  },
+  profilePanel: {
+    backgroundColor: G.white,
+    borderRadius: radius.md,
+    padding: spacing[5],
+    marginTop: spacing[2],
+    ...shadows.cardSubtle,
+  },
+  profileBlock: {
+    marginBottom: spacing[4],
+  },
+  profileLabel: {
+    letterSpacing: 1.5,
+    fontWeight: "600" as const,
+    marginBottom: spacing[1],
   },
 });

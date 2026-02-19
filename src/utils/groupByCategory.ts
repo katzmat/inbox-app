@@ -6,11 +6,12 @@ export function groupByCategory(
 ): { category: string; emails: BriefingEmail[] }[] {
   const map = new Map<string, BriefingEmail[]>();
   for (const email of emails) {
-    const existing = map.get(email.category);
+    const cat = email.category || "Other";
+    const existing = map.get(cat);
     if (existing) {
       existing.push(email);
     } else {
-      map.set(email.category, [email]);
+      map.set(cat, [email]);
     }
   }
   return Array.from(map.entries()).map(([category, emails]) => ({

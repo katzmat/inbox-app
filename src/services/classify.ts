@@ -527,26 +527,26 @@ function classify(msg: GmailMessage): Classification {
 // Maps the framework's categories + actions to the briefing UI tiers.
 
 function tierFromClassification(c: Classification): BriefingTier {
-  // Timely + Important Context/Draft/SOP → priority
-  if (c.category === "Timely") return "priority";
-  if (c.category === "Important Context") return "priority";
-  if (c.category === "Important Draft") return "priority";
-  if (c.category === "Important SOP") return "priority";
-  if (c.category === "Action") return "priority";
+  // Timely + Important Context/Draft/SOP → needsAttention
+  if (c.category === "Timely") return "needsAttention";
+  if (c.category === "Important Context") return "needsAttention";
+  if (c.category === "Important Draft") return "needsAttention";
+  if (c.category === "Important SOP") return "needsAttention";
+  if (c.category === "Action") return "needsAttention";
 
-  // Real people always surface as priority
-  if (c.category === "Important Info") return "priority";
+  // Real people always surface as needsAttention
+  if (c.category === "Important Info") return "needsAttention";
 
-  // Transactional → uncertain (glance)
-  if (c.category === "Calendar") return "uncertain";
-  if (c.category === "Payments") return "uncertain";
-  if (c.category === "Packages") return "uncertain";
-  if (c.category === "Comments") return "uncertain";
+  // Transactional → glance
+  if (c.category === "Calendar") return "glance";
+  if (c.category === "Payments") return "glance";
+  if (c.category === "Packages") return "glance";
+  if (c.category === "Comments") return "glance";
 
-  // Informational → uncertain (glance) — bundled by category
-  if (c.category === "Newsletter") return "uncertain";
-  if (c.category === "Social") return "uncertain";
-  if (c.category === "Updates") return "uncertain";
+  // Informational → glance — bundled by category
+  if (c.category === "Newsletter") return "glance";
+  if (c.category === "Social") return "glance";
+  if (c.category === "Updates") return "glance";
 
   // Promotion, Other, Spam → low
   return "low";
@@ -555,21 +555,22 @@ function tierFromClassification(c: Classification): BriefingTier {
 // ─── Public API ───────────────────────────────────────────
 
 export function classifyEmails(messages: GmailMessage[]): BriefingEmail[] {
-  return messages.map((msg, i) => {
+  return messages.map((msg) => {
     const c = classify(msg);
     return {
-      id: i + 1,
-      gmailId: msg.id,
+      id: msg.id,
       webLink: msg.webLink,
       from: senderName(msg.from),
       subject: msg.subject,
-      preview: msg.snippet,
-      detail: msg.snippet,
-      fullBody: msg.snippet,
+      snippet: msg.snippet,
+      date: msg.date,
       reason: c.reason,
       tier: tierFromClassification(c),
       category: c.category,
       suggestedAction: c.suggestedAction,
+      summary: null,
+      urgencyType: null,
+      glanceCategory: null,
     };
   });
 }
