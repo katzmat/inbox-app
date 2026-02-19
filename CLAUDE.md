@@ -1,15 +1,17 @@
 # CLAUDE.md — inbox-app
 
 ## What This Is
-A React Native (Expo Web) email briefing prototype connected to real Gmail via OAuth. The active screen is `MorningBrief.tsx` — a tiered, classified view of the user's inbox.
+A React Native (Expo Web) email briefing prototype connected to real email (Yahoo or Gmail) via IMAP. The active screen is `MorningBrief.tsx` — a tiered, classified view of the user's inbox.
 
 ## Stack
 - React Native + Expo SDK 54, TypeScript strict mode
 - Expo Web on port 8083 (`npx expo start --web --port 8083`)
 - Custom design system: `orbit-ds/` (do NOT modify orbit-ds internals)
-- Express backend at `../email-prototype/` on port 3000 (OAuth proxy + Gmail API)
+- Express backend at `../email-prototype/` on port 3000 (JWT auth + IMAP)
 
 ## Running
+
+### Local development
 ```bash
 # Terminal 1: backend
 cd ../email-prototype && node server.js
@@ -17,22 +19,49 @@ cd ../email-prototype && node server.js
 # Terminal 2: frontend
 npx expo start --web --port 8083
 ```
-Backend requires `.env` with `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SESSION_SECRET`, and `ALLOWED_ORIGINS=http://localhost:8083`. See `../email-prototype/.env.example`.
+Backend requires `.env` with `YAHOO_CLIENT_ID`, `YAHOO_CLIENT_SECRET`, `JWT_SECRET`, and `ALLOWED_ORIGINS=http://localhost:8083`.
+
+### Remote access via ngrok
+```bash
+# Build static frontend bundle
+npx expo export --platform web
+
+# Start backend (serves API + static bundle at /app/)
+cd ../email-prototype && node server.js
+
+# Start ngrok with stable domain
+ngrok http 3000 --url sprintshellproto.ngrok.io
+```
+**Stable remote URL**: https://sprintshellproto.ngrok.io/app/
+
+The backend serves the Expo web build at `/app/` so a single ngrok tunnel handles both API and frontend. After any frontend code changes, re-run `npx expo export --platform web` and restart the backend.
+
+**Note**: ngrok requires your laptop to be open and online. The URL is stable (doesn't change on restart) but the tunnel must be running.
+
+## Auth & Login
+- **LoginScreen.tsx** — two-tab form: Yahoo or Gmail, both using email + app password
+- **App.tsx** — checks session on mount, shows LoginScreen if not connected, Disconnect button in nav
+- **No OAuth redirect needed** — participants create an app password in their email provider's security settings
+- Yahoo: login.yahoo.com → Account Security → Generate App Password (requires 2-step verification)
+- Gmail: myaccount.google.com → Security → App Passwords (requires 2-step verification)
 
 ## File Layout
 ```
-App.tsx                         — Root: PhoneFrame + tab nav (Inbox | Briefing)
+App.tsx                         — Root: session gate + PhoneFrame + tab nav (Inbox | Briefing | Disconnect)
 src/
   PrototypeScreen.tsx           — Renders MorningBrief
   screens/
+    LoginScreen.tsx             — Yahoo/Gmail app password login
     MorningBrief.tsx            — ★ ACTIVE SCREEN: tiered briefing UI
+    ProtoZones.tsx              — Zones prototype (Surfaced / Brief / Station)
     (others are inactive prototypes)
   services/
-    gmail.ts                    — API client: checkSession, getAuthUrl, fetchEmails
+    gmail.ts                    — API client: checkSession, loginYahooPassword, loginGmailPassword, fetchEmails, disconnect
     classify.ts                 — ★ CLASSIFICATION ENGINE: rules framework
   data/
     briefing.ts                 — Types + mock data + createBriefingFromGmail factory
   hooks/
+    useBriefingData.ts          — Session check + email fetch + classification orchestration
     useCountdown.ts             — Countdown timer for next briefing
   components/                   — Shared components (used by InboxScreen, not Briefing)
 orbit-ds/                       — Design system (DO NOT MODIFY)
@@ -43,13 +72,15 @@ docs/
 ## Classification Architecture
 
 ### The Engine: `src/services/classify.ts`
-Evaluates each Gmail message in strict priority order:
+Evaluates each email message in strict priority order:
 1. **Timely** — OTP, verification, security, URGENT, same-day meetings
-2. **Spam** — phishing patterns + SPAM label
+2. **Spam** — phishing subject patterns (no label required — works for Yahoo too)
 3. **Precise rules** — Calendar, Action, Payments, Packages, Comments (pattern tables)
-4. **Label heuristics** — Gmail's CATEGORY_PROMOTIONS/FORUMS/SOCIAL/UPDATES
+4. **Label heuristics** — Gmail's CATEGORY_PROMOTIONS/FORUMS/SOCIAL/UPDATES (Gmail only via X-GM-LABELS)
 5. **Real-person detection** — personal email domain + not automated subject
 6. **Default** → Other
+
+Yahoo has no category labels — classification falls through to pattern matching, which covers most cases.
 
 ### Categories → UI Tiers
 - **Priority**: Timely, Important Context, Important Draft, Important SOP, Important Info, Action
@@ -77,7 +108,7 @@ A sender is "real" only if ALL of:
 
 ### States
 - `loading` — spinner, empty stats (no mock data flash)
-- `disconnected` — "Connect Gmail" button, falls back to mock data
+- `disconnected` — falls back to mock data
 - `connected` — real classified emails
 
 ### Sections
@@ -90,14 +121,15 @@ A sender is "real" only if ALL of:
 ### Every email when expanded shows:
 - Preview text
 - `AI: {reason}` tag
-- "Open email →" chip (opens Gmail via `gmailId`)
+- "Open email →" chip (opens via `webLink` — Gmail web or Yahoo Mail)
 
 ## Key Types
 
 ```typescript
 type BriefingEmail = {
   id: number;
-  gmailId?: string;      // Gmail message ID for deep linking
+  gmailId?: string;      // IMAP UID
+  webLink?: string;       // Deep link to email in web client
   from: string;
   subject: string;
   preview: string;
@@ -116,3 +148,4 @@ type BriefingEmail = {
 - `npx tsc --noEmit` must pass clean before committing
 - Mock data in `briefing.ts` serves as fallback when backend is down — keep it realistic
 - All fetch calls use `credentials: "include"` for session cookies
+- `API_BASE` auto-detects: localhost for dev, same origin when served from `/app/` via ngrok
