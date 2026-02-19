@@ -6,15 +6,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Platform,
-  Linking,
   ScrollView,
 } from "react-native";
 import { OrbitText, spacing, radius } from "../../orbit-ds";
 import {
-  loginYahooToken,
+  loginYahooPassword,
   loginGmailPassword,
-  getYahooOAuthUrl,
 } from "../services/gmail";
 
 const G = {
@@ -41,55 +38,26 @@ export default function LoginScreen({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Yahoo token fields
-  const [yahooToken, setYahooToken] = useState("");
+  // Shared fields
+  const [email, setEmail] = useState("");
+  const [appPassword, setAppPassword] = useState("");
 
-  // Gmail fields
-  const [gmailEmail, setGmailEmail] = useState("");
-  const [gmailPassword, setGmailPassword] = useState("");
-
-  const handleYahooToken = async () => {
-    if (!yahooToken.trim()) return;
+  const handleLogin = async () => {
+    if (!email.trim() || !appPassword.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await loginYahooToken(yahooToken.trim());
+      const loginFn = tab === "yahoo" ? loginYahooPassword : loginGmailPassword;
+      const res = await loginFn(email.trim(), appPassword.trim());
       if (res.success) {
         onLoginSuccess();
       } else {
-        setError(res.error || "Yahoo login failed");
+        setError(res.error || "Login failed");
       }
     } catch {
       setError("Connection failed. Is the backend running?");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGmailPassword = async () => {
-    if (!gmailEmail.trim() || !gmailPassword.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await loginGmailPassword(gmailEmail.trim(), gmailPassword.trim());
-      if (res.success) {
-        onLoginSuccess();
-      } else {
-        setError(res.error || "Gmail login failed");
-      }
-    } catch {
-      setError("Connection failed. Is the backend running?");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleYahooOAuth = () => {
-    const url = getYahooOAuthUrl();
-    if (Platform.OS === "web") {
-      window.location.href = url;
-    } else {
-      Linking.openURL(url);
     }
   };
 
@@ -115,16 +83,16 @@ export default function LoginScreen({
       {/* Tabs */}
       <View style={styles.tabs}>
         <TouchableOpacity
-          onPress={() => { setTab("yahoo"); setError(null); }}
+          onPress={() => { setTab("yahoo"); setError(null); setEmail(""); setAppPassword(""); }}
           style={[styles.tab, tab === "yahoo" && styles.tabActive]}
           activeOpacity={0.7}
         >
           <Text style={[styles.tabText, tab === "yahoo" && styles.tabTextActive]}>
-            Yahoo Token
+            Yahoo
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => { setTab("gmail"); setError(null); }}
+          onPress={() => { setTab("gmail"); setError(null); setEmail(""); setAppPassword(""); }}
           style={[styles.tab, tab === "gmail" && styles.tabActive]}
           activeOpacity={0.7}
         >
@@ -134,85 +102,53 @@ export default function LoginScreen({
         </TouchableOpacity>
       </View>
 
-      {/* Tab content */}
+      {/* Form */}
       <View style={styles.form}>
-        {tab === "yahoo" ? (
-          <>
-            <TextInput
-              style={[styles.input, styles.inputMultiline]}
-              placeholder="Paste Yahoo OAuth token here..."
-              placeholderTextColor={G.light}
-              value={yahooToken}
-              onChangeText={setYahooToken}
-              multiline
-              numberOfLines={4}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <OrbitText
-              variant="caption2"
-              color={G.muted}
-              style={{ marginTop: spacing[2] }}
-            >
-              Get a token from the Yahoo Developer Console or your test script.
-            </OrbitText>
-            <TouchableOpacity
-              onPress={handleYahooToken}
-              style={[styles.button, loading && styles.buttonDisabled]}
-              activeOpacity={0.7}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={G.white} size="small" />
-              ) : (
-                <Text style={styles.buttonText}>Connect Yahoo</Text>
-              )}
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <TextInput
-              style={styles.input}
-              placeholder="Email (e.g. you@gmail.com)"
-              placeholderTextColor={G.light}
-              value={gmailEmail}
-              onChangeText={setGmailEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="App password"
-              placeholderTextColor={G.light}
-              value={gmailPassword}
-              onChangeText={setGmailPassword}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <OrbitText
-              variant="caption2"
-              color={G.muted}
-              style={{ marginTop: spacing[2] }}
-            >
-              Use a Google App Password (not your regular password).{"\n"}
-              Create one at myaccount.google.com → Security → App Passwords.
-            </OrbitText>
-            <TouchableOpacity
-              onPress={handleGmailPassword}
-              style={[styles.button, loading && styles.buttonDisabled]}
-              activeOpacity={0.7}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={G.white} size="small" />
-              ) : (
-                <Text style={styles.buttonText}>Connect Gmail</Text>
-              )}
-            </TouchableOpacity>
-          </>
-        )}
+        <TextInput
+          style={styles.input}
+          placeholder={tab === "yahoo" ? "Yahoo email address" : "Gmail address"}
+          placeholderTextColor={G.light}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="App password"
+          placeholderTextColor={G.light}
+          value={appPassword}
+          onChangeText={setAppPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+
+        <OrbitText
+          variant="caption2"
+          color={G.muted}
+          style={{ marginTop: spacing[2] }}
+        >
+          {tab === "yahoo"
+            ? "Use a Yahoo App Password (not your regular password).\nCreate one at login.yahoo.com → Account Security → Generate app password."
+            : "Use a Google App Password (not your regular password).\nCreate one at myaccount.google.com → Security → App Passwords."}
+        </OrbitText>
+
+        <TouchableOpacity
+          onPress={handleLogin}
+          style={[styles.button, loading && styles.buttonDisabled]}
+          activeOpacity={0.7}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={G.white} size="small" />
+          ) : (
+            <Text style={styles.buttonText}>
+              Connect {tab === "yahoo" ? "Yahoo" : "Gmail"}
+            </Text>
+          )}
+        </TouchableOpacity>
 
         {/* Error */}
         {error && (
@@ -221,15 +157,6 @@ export default function LoginScreen({
           </View>
         )}
       </View>
-
-      {/* Yahoo OAuth link */}
-      <TouchableOpacity
-        onPress={handleYahooOAuth}
-        style={styles.oauthLink}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.oauthLinkText}>Sign in with Yahoo →</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -283,10 +210,6 @@ const styles = StyleSheet.create({
     color: G.dark,
     backgroundColor: G.bg,
   },
-  inputMultiline: {
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
   button: {
     backgroundColor: G.dark,
     borderRadius: radius.md,
@@ -311,15 +234,5 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     color: G.error,
-  },
-  oauthLink: {
-    marginTop: spacing[8],
-    alignItems: "center",
-    paddingVertical: spacing[3],
-  },
-  oauthLinkText: {
-    fontSize: 14,
-    color: G.muted,
-    fontWeight: "500",
   },
 });

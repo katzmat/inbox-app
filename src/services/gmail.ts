@@ -61,6 +61,19 @@ export async function loginYahooToken(token: string): Promise<{ success: boolean
   return res.json();
 }
 
+export async function loginYahooPassword(
+  email: string,
+  appPassword: string
+): Promise<{ success: boolean; email?: string; error?: string }> {
+  const res = await fetch(`${API_BASE}/auth/yahoo-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email, appPassword }),
+  });
+  return res.json();
+}
+
 export async function loginGmailPassword(
   email: string,
   appPassword: string

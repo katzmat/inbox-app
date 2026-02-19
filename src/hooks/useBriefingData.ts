@@ -36,7 +36,8 @@ export function useBriefingData() {
         const classified = classifyEmails(messages);
         setLiveBriefing(createBriefingFromGmail(classified));
         setConnState("connected");
-      } catch {
+      } catch (err) {
+        console.error("[useBriefingData] fetch error:", err);
         if (!cancelled) setConnState("disconnected");
       }
     })();
