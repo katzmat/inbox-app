@@ -15,6 +15,7 @@ export type GlanceCategory =
 
 export type BriefingEmail = {
   id: string | number;
+  threadId?: string;
   from: string;
   fromFull?: string;
   subject: string;

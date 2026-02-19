@@ -23,6 +23,8 @@ export { default as Divider } from "./primitives/Divider";
 export { default as Star } from "./primitives/Star";
 export { default as Tag } from "./primitives/Tag";
 export { default as Notification } from "./primitives/Notification";
+export { default as TextInput } from "./primitives/TextInput";
+export { default as Toggle } from "./primitives/Toggle";
 
 // ── Components ──────────────────────────────
 export { default as TopNavigation } from "./components/TopNavigation";
@@ -39,6 +41,9 @@ export { default as SectionHeader } from "./components/SectionHeader";
 export { default as BottomSheet } from "./components/BottomSheet";
 export { default as Toast } from "./components/Toast";
 export { default as StatusBar } from "./components/StatusBar";
+export { default as SearchBar } from "./components/SearchBar";
+export { default as Modal } from "./components/Modal";
+export { default as EmptyState } from "./components/EmptyState";
 
 // ── Layouts ─────────────────────────────────
 export { default as PhoneFrame } from "./layouts/PhoneFrame";

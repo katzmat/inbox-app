@@ -6,6 +6,7 @@ import InboxScreen from "./src/InboxScreen";
 import PrototypeScreen from "./src/PrototypeScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import { checkSession, disconnect } from "./src/services/gmail";
+import ErrorBoundary from "./src/components/ErrorBoundary";
 
 type Screen = "inbox" | "prototypes";
 type AppState = "loading" | "login" | "app";
@@ -60,7 +61,9 @@ export default function App() {
           style={{ flex: 1, backgroundColor: screen === "prototypes" ? "#1d1d1f" : colors.background.primary }}
           edges={["top"]}
         >
-          {screen === "inbox" ? <InboxScreen /> : <PrototypeScreen />}
+          <ErrorBoundary>
+            {screen === "inbox" ? <InboxScreen /> : <PrototypeScreen />}
+          </ErrorBoundary>
         </SafeAreaView>
 
         {/* Screen toggle + disconnect - web only */}

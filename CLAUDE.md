@@ -6,7 +6,8 @@ A React Native (Expo Web) email briefing prototype connected to real email (Yaho
 ## Stack
 - React Native + Expo SDK 54, TypeScript strict mode
 - Expo Web on port 8083 (`npx expo start --web --port 8083`)
-- Custom design system: `orbit-ds/` (do NOT modify orbit-ds internals)
+- Expo Router (file-based routing in `app/` directory)
+- Custom design system: `orbit-ds/` (extend with new components as needed)
 - Express backend at `../email-prototype/` on port 3000 (JWT auth + IMAP)
 
 ## Running
@@ -39,35 +40,49 @@ The backend serves the Expo web build at `/app/` so a single ngrok tunnel handle
 **Note**: ngrok requires your laptop to be open and online. The URL is stable (doesn't change on restart) but the tunnel must be running.
 
 ## Auth & Login
-- **LoginScreen.tsx** — two-tab form: Yahoo or Gmail, both using email + app password
-- **App.tsx** — checks session on mount, shows LoginScreen if not connected, Disconnect button in nav
+- **app/login.tsx** — route that renders LoginScreen
+- **app/_layout.tsx** — root layout checks session on mount, redirects to login if not connected
 - **No OAuth redirect needed** — participants create an app password in their email provider's security settings
 - Yahoo: login.yahoo.com → Account Security → Generate App Password (requires 2-step verification)
 - Gmail: myaccount.google.com → Security → App Passwords (requires 2-step verification)
 
 ## File Layout
 ```
-App.tsx                         — Root: session gate + PhoneFrame + tab nav (Inbox | Briefing | Disconnect)
+app/                            — ★ ROUTES (Expo Router file-based routing)
+  _layout.tsx                   — Root layout: session gate + PhoneFrame + ErrorBoundary
+  login.tsx                     — Login route (unauthenticated)
+  (tabs)/
+    _layout.tsx                 — Tab bar layout (Briefing | Inbox | Settings)
+    briefing.tsx                — Briefing tab → renders MorningBrief
+    inbox.tsx                   — Inbox tab → renders InboxScreen
+    settings.tsx                — Settings tab (disconnect, future preferences)
 src/
-  PrototypeScreen.tsx           — Renders MorningBrief
   screens/
-    LoginScreen.tsx             — Yahoo/Gmail app password login
-    MorningBrief.tsx            — ★ ACTIVE SCREEN: tiered briefing UI
-    ProtoZones.tsx              — Zones prototype (Surfaced / Brief / Station)
-    (others are inactive prototypes)
+    LoginScreen.tsx             — Yahoo/Gmail app password login form
+    MorningBrief.tsx            — ★ MAIN SCREEN: tiered briefing UI
+    _archive/                   — Inactive prototypes (preserved for reference)
   services/
-    gmail.ts                    — API client: checkSession, loginYahooPassword, loginGmailPassword, fetchEmails, disconnect
+    gmail.ts                    — API client: checkSession, login, fetchEmails, disconnect
     classify.ts                 — ★ CLASSIFICATION ENGINE: rules framework
   data/
     briefing.ts                 — Types + mock data + createBriefingFromGmail factory
   hooks/
     useBriefingData.ts          — Session check + email fetch + classification orchestration
     useCountdown.ts             — Countdown timer for next briefing
-  components/                   — Shared components (used by InboxScreen, not Briefing)
-orbit-ds/                       — Design system (DO NOT MODIFY)
+  components/
+    ErrorBoundary.tsx           — Catches crashes, shows retry UI
+orbit-ds/                       — Design system (extend with new components as needed)
+  primitives/                   — TextInput, Toggle, Button, Avatar, Badge, Tag, etc.
+  components/                   — Card, SearchBar, Modal, EmptyState, ListItem, etc.
+  tokens/                       — colors, typography, spacing, radius, shadows
 docs/
   classification-rules.md       — Source-of-truth classification framework
 ```
+
+### Adding a New Screen
+1. Create a file in `app/(tabs)/myscreen.tsx` — it automatically becomes a tab
+2. Add a `<Tabs.Screen>` entry in `app/(tabs)/_layout.tsx` for icon/label
+3. Build the UI in the route file, or create a component in `src/screens/` and import it
 
 ## Classification Architecture
 

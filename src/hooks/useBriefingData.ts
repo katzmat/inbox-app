@@ -1,109 +1,52 @@
-import { useState, useEffect, useCallback } from "react";
-import {
-  mockBriefingResponse,
-  type BriefingResponse,
-  type BriefingEmail,
-  type BriefingStats,
-  type Briefing,
+import { useEffect } from "react";
+import { useSessionStore } from "../stores/session";
+import { useBriefingStore } from "../stores/briefing";
+import type {
+  BriefingStats,
+  Briefing,
+  BriefingEmail,
 } from "../data/briefing";
-import { checkSession, disconnect } from "../services/gmail";
 
 type ConnectionState = "loading" | "disconnected" | "connected";
 
-function getApiBase(): string {
-  if (typeof window !== "undefined") {
-    const params = new URLSearchParams(window.location.search);
-    const api = params.get("api");
-    if (api) return api;
-    if (window.location.pathname.startsWith("/app")) {
-      return window.location.origin;
-    }
-  }
-  return "http://localhost:3000";
-}
-
-const API_BASE = getApiBase();
-
-async function fetchBriefing(): Promise<BriefingResponse> {
-  const res = await fetch(`${API_BASE}/api/briefing?maxResults=50`, {
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error(`fetchBriefing failed: ${res.status}`);
-  return res.json();
-}
-
+/**
+ * Orchestration hook — bridges the Zustand stores into the shape
+ * that MorningBrief.tsx and InboxScreen.tsx already expect.
+ */
 export function useBriefingData() {
-  const [connState, setConnState] = useState<ConnectionState>("loading");
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [briefingData, setBriefingData] = useState<BriefingResponse | null>(
-    null
-  );
-  const [refreshKey, setRefreshKey] = useState(0);
+  const sessionStatus = useSessionStore((s) => s.status);
+  const userEmail = useSessionStore((s) => s.userEmail);
 
+  const loading = useBriefingStore((s) => s.loading);
+  const response = useBriefingStore((s) => s.response);
+  const fetchBriefing = useBriefingStore((s) => s.fetchBriefing);
+  const getResponse = useBriefingStore((s) => s.getResponse);
+  const getAllEmails = useBriefingStore((s) => s.getAllEmails);
+  const getStats = useBriefingStore((s) => s.getStats);
+
+  // Fetch briefing when session connects
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const session = await checkSession();
-        if (cancelled) return;
-        if (!session.connected) {
-          setConnState("disconnected");
-          return;
-        }
-        setUserEmail(session.userEmail);
-        const data = await fetchBriefing();
-        if (cancelled) return;
-        setBriefingData(data);
-        setConnState("connected");
-      } catch (err) {
-        console.error("[useBriefingData] fetch error:", err);
-        if (!cancelled) setConnState("disconnected");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshKey]);
+    if (sessionStatus === "connected" && !response && !loading) {
+      fetchBriefing();
+    }
+  }, [sessionStatus, response, loading]);
 
-  const handleLoginSuccess = useCallback(() => {
-    setConnState("loading");
-    setRefreshKey((k) => k + 1);
-  }, []);
+  // Map to the connection state shape screens expect
+  const connState: ConnectionState =
+    sessionStatus === "loading" || loading
+      ? "loading"
+      : sessionStatus === "disconnected"
+      ? "disconnected"
+      : "connected";
 
-  const handleDisconnect = useCallback(async () => {
-    await disconnect();
-    setConnState("disconnected");
-    setUserEmail(null);
-    setBriefingData(null);
-  }, []);
-
-  // Use mock data when disconnected, real data when connected
-  const response: BriefingResponse =
-    connState === "disconnected" && !briefingData
-      ? mockBriefingResponse
-      : briefingData ?? {
-          generatedAt: "",
-          backend: "empty",
-          profileStatus: "none",
-          summary: { total: 0, needsAttention: 0, glance: 0, low: 0 },
-          sections: { needsAttention: [], glance: {}, low: [] },
-        };
-
+  const r = getResponse();
   const stats: BriefingStats = {
-    needsAttention: response.summary.needsAttention,
-    glance: response.summary.glance,
-    low: response.summary.low,
-    total: response.summary.total,
-    priority: response.summary.needsAttention,
-    uncertain: response.summary.glance,
+    ...getStats(),
+    priority: r.summary.needsAttention,
+    uncertain: r.summary.glance,
   };
 
-  // Legacy: build flat email list + tiers object for inactive screens
-  const allEmails: BriefingEmail[] = [
-    ...response.sections.needsAttention,
-    ...Object.values(response.sections.glance).flat(),
-    ...response.sections.low,
-  ];
+  const allEmails: BriefingEmail[] = getAllEmails();
 
   const briefing: Briefing = {
     id: "live",
@@ -118,20 +61,18 @@ export function useBriefingData() {
   };
 
   const tiers = {
-    priority: response.sections.needsAttention,
-    uncertain: Object.values(response.sections.glance).flat(),
-    low: response.sections.low,
+    priority: r.sections.needsAttention,
+    uncertain: Object.values(r.sections.glance).flat(),
+    low: r.sections.low,
   };
 
   return {
     connState,
     userEmail,
-    profileStatus: response.profileStatus,
-    sections: response.sections,
+    profileStatus: r.profileStatus,
+    sections: r.sections,
     stats,
     briefing,
     tiers,
-    handleLoginSuccess,
-    handleDisconnect,
   };
 }
