@@ -158,9 +158,16 @@ type BriefingEmail = {
 ```
 
 ## Conventions
+- Brand color: `#7d2eff` (purple)
 - Greyscale palette (G.black through G.white) — no color except brand purple in orbit-ds
 - Import orbit-ds via barrel: `import { Component } from "../../orbit-ds"`
 - `npx tsc --noEmit` must pass clean before committing
 - Mock data in `briefing.ts` serves as fallback when backend is down — keep it realistic
 - All fetch calls use `credentials: "include"` for session cookies
 - `API_BASE` auto-detects: localhost for dev, same origin when served from `/app/` via ngrok
+- Prototype-grade code — don't over-engineer
+- Concise commits: descriptive title, detailed body with file-by-file breakdown
+
+## Troubleshooting
+- Backend process sometimes goes stale on port 3000 — `kill -9` the PID and restart
+- Life graph data lives at `life-graph-data.json` in backend (42 senders, 16 life threads)
