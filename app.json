@@ -30,6 +30,9 @@
     "scheme": "inbox-app",
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "experiments": {
+      "baseUrl": "/app"
+    }
   }
 }

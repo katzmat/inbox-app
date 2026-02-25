@@ -9,7 +9,7 @@ export default function LoginRoute() {
 
   const handleLogin = async () => {
     await onLoginSuccess();
-    router.replace("/(tabs)/briefing");
+    router.replace("/(tabs)/home");
   };
 
   return (
