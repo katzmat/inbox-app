@@ -21,7 +21,10 @@ import {
   shadows,
 } from "../../orbit-ds";
 import { USER_NAME, TODAY, type BriefingEmail } from "../data/briefing";
-import { useCountdown } from "../hooks/useCountdown";
+// useCountdown hook removed — inline stub for archive reference
+function useCountdown(_secs: number) {
+  return { formatted: "—", pullEarly: () => {}, pulled: false };
+}
 import { useBriefingData } from "../hooks/useBriefingData";
 
 // ─── Greyscale palette ────────────────────────────────

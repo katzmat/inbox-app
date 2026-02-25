@@ -20,7 +20,7 @@ import {
   spacing,
   radius,
   shadows,
-} from "../../orbit-ds";
+} from "../../../orbit-ds";
 import {
   morningBriefing,
   emailsByTier,
@@ -28,8 +28,8 @@ import {
   USER_NAME,
   type BriefingEmail,
   type BriefingTier,
-} from "../data/briefing";
-import { useCountdown } from "../hooks/useCountdown";
+} from "../../data/briefing";
+function useCountdown(_s: number) { return { formatted: "—", pullEarly: () => {}, pulled: false }; }
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);

@@ -15,7 +15,7 @@ import {
   spacing,
   radius,
   shadows,
-} from "../../orbit-ds";
+} from "../../../orbit-ds";
 import {
   urgentItems,
   needsAttention,
@@ -23,7 +23,7 @@ import {
   quietStats,
   USER_NAME,
   TODAY,
-} from "../data/prototype";
+} from "../../data/prototype";
 
 function UrgentCard({
   item,

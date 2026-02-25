@@ -23,7 +23,7 @@ export default function RootLayout() {
     if (status === "disconnected" && !inAuth) {
       router.replace("/login");
     } else if (status === "connected" && inAuth) {
-      router.replace("/(tabs)/briefing");
+      router.replace("/(tabs)/home");
     }
   }, [status, segments]);
 

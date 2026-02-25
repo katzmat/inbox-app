@@ -16,12 +16,12 @@ import {
   colors,
   spacing,
   radius,
-} from "../../orbit-ds";
+} from "../../../orbit-ds";
 import {
   traditionalInbox,
   quietStats,
   type TraditionalEmail,
-} from "../data/prototype";
+} from "../../data/prototype";
 
 function ChipBar() {
   const chipText = `${quietStats.receiptsOrganized} receipts organized · ${quietStats.subscriptionsTracked} subscriptions tracked`;

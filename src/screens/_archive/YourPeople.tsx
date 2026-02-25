@@ -12,8 +12,8 @@ import {
   colors,
   spacing,
   radius,
-} from "../../orbit-ds";
-import { people, quietStats, TODAY, type Person } from "../data/prototype";
+} from "../../../orbit-ds";
+import { people, quietStats, TODAY, type Person } from "../../data/prototype";
 
 const sections = [
   { id: "inner", label: "Inner Circle", data: people.innerCircle },

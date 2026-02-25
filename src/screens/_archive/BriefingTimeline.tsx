@@ -17,15 +17,15 @@ import {
   spacing,
   radius,
   shadows,
-} from "../../orbit-ds";
+} from "../../../orbit-ds";
 import {
   allBriefings,
   emailsByTier,
   briefingStats,
   type BriefingEmail,
   type Briefing,
-} from "../data/briefing";
-import { useCountdown } from "../hooks/useCountdown";
+} from "../../data/briefing";
+function useCountdown(_s: number) { return { formatted: "—", pullEarly: () => {}, pulled: false }; }
 
 const TIER_RAIL_COLOR: Record<string, string> = {
   priority: colors.status.urgent,

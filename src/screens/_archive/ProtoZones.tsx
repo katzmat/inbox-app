@@ -20,16 +20,16 @@ import {
   spacing,
   radius,
   shadows,
-} from "../../orbit-ds";
+} from "../../../orbit-ds";
 import {
   USER_NAME,
   TODAY,
   type BriefingEmail,
-} from "../data/briefing";
-import { useCountdown } from "../hooks/useCountdown";
-import { useBriefingData } from "../hooks/useBriefingData";
-import { usePinnedEmails } from "../hooks/usePinnedEmails";
-import { groupByCategory } from "../utils/groupByCategory";
+} from "../../data/briefing";
+function useCountdown(_s: number) { return { formatted: "—", pullEarly: () => {}, pulled: false }; }
+import { useBriefingData } from "../../hooks/useBriefingData";
+import { usePinnedEmails } from "../../hooks/usePinnedEmails";
+import { groupByCategory } from "../../utils/groupByCategory";
 
 // ─── Greyscale palette ────────────────────────────────
 const G = {
